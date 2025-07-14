@@ -1,10 +1,10 @@
-# EKS Node Group Scaler Lambda
+# Lambdas EKS e RDS
 
-Esta Lambda em Node.js escala Auto Scaling Groups (ASGs) usados como Node Groups do Amazon EKS com base em tag `stop=yes` e agendamentos via CloudWatch/EventBridge.
-
+Lambdas EKS e RDS em Node.js com base em tag `stop=yes` e agendamentos via CloudWatch/EventBridge para uso em praticas de FinOps. Realizando o scale UP e Down dos nodes groups do EKS e start e stop de instancias RDS em horarios definidos que não há utilização.
+ 
 ---
 
-## ✅ Pré-requisitos
+## ✅ Pré-requisitos (Execução local)
 
 - AWS CLI configurada com credenciais e região
 - Node.js 18+ instalado (recomendo usar `nvm`)
@@ -18,7 +18,8 @@ Esta Lambda em Node.js escala Auto Scaling Groups (ASGs) usados como Node Groups
 ```bash
 .
 ├── src/
-│ └── handler.js # Código da Lambda
+│ └── eksScaler.js # Lambda EKS 
+│ └── rdsScaler.js # Lambda RDS 
 ├── package.json
 └── serverless.yml # Configuração Serverless
 ```
@@ -46,12 +47,20 @@ Este comando irá:
 
 ### 3. Testar a Lambda localmente
 
-`sls invoke local -f scaler --data '{"action":"scaleDown"}'`
+`sls invoke -f eksScaler --data '{"action":"scaleDown"}'`
+
+`sls invoke -f rdsScaler --data '{"action":"stop"}'`
 
 ### 4. Testar a Lambda diretamente na AWS
 Vá até function > test e crie um evento de teste com a seguinte chave
 
+eksScaler
+
 `{"action": "scaleDown"}`
+
+rdsScaler
+
+`'{"action":"stop"}'`
 
 Ou via AWS CLI:
 ```bash
@@ -67,15 +76,6 @@ cat response.json
 ### 1. Passar o stage no deploy
 
 `sls deploy --stage prod`
-
-### 2. Definir stage padrão no serverless.yml
-
-```bash
-provider:
-  name: aws
-  stage: prod
-  ...
-```
 
 ## 🧰 Comandos úteis
 

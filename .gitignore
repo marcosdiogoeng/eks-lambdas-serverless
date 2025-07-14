@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 #outhers
 package-lock.json
+
+#esbuild
+.esbuild

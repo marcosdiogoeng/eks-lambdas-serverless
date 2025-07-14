@@ -1,4 +1,4 @@
-service: eks-scaler
+service: eks-rds-scaler
 frameworkVersion: '3'
 
 provider:
@@ -10,30 +10,36 @@ provider:
   architecture: arm64
   environment:
     AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - autoscaling:DescribeAutoScalingGroups
-            - autoscaling:UpdateAutoScalingGroup
-          Resource: "*"
 
 functions:
-  scaler:
+  eksScaler:
     name: eks-scaler
-    stage: dev
-    handler: src/handler.handler
+    handler: src/eksScaler.handler
     description: Escala nodes EKS baseado na tag stop=yes e ação (scaleUp/scaleDown)
+    role: EksScalerLambdaRole
     events:
       - schedule:
           rate: cron(0 22 * * ? *) # 19h BRT (scaleDown)
           input:
             action: scaleDown
       - schedule:
-          rate: cron(0 10 * * ? *) # 7h BRT (scaleUp)
+          rate: cron(0 10 ? * 2-6 *) # 7h BRT MON-FRI (scaleUp)
           input:
             action: scaleUp
+  rdsScaler:
+    name: rds-scaler
+    handler: src/rdsScaler.handler
+    description: Gerencia start/stop instâncias RDS
+    role: RdsScalerLambdaRole
+    events:
+      - schedule:
+          rate: cron(0 22 * * ? *) # 19h BRT
+          input:
+            action: stop
+      - schedule:
+          rate: cron(0 10 ? * 2-6 *) # 7h BRT MON-FRI
+          input:
+            action: start
 
 plugins:
   - serverless-esbuild
@@ -44,3 +50,50 @@ custom:
     target: node18
     platform: node
     format: cjs
+
+resources:
+  Resources:
+    EksScalerLambdaRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: eks-scaler-lambda-role
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: eksScalerPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - autoscaling:DescribeAutoScalingGroups
+                    - autoscaling:UpdateAutoScalingGroup
+                  Resource: "*"
+    RdsScalerLambdaRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: rds-scaler-lambda-role
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: rdsScalerPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - rds:DescribeDBInstances
+                    - rds:ListTagsForResource
+                    - rds:StopDBInstance
+                    - rds:StartDBInstance
+                  Resource: "*"
