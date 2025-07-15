@@ -2,11 +2,24 @@ name: Deploy Lambda
 
 on:
   workflow_dispatch:
+    inputs:
+      envs:
+        type: choice
+        description: 'Select the environment to deploy'
+        required: true
+        default: 'dev'
+        options:
+          - dev
+          - stg
+          - prod
 
 jobs:
   deploy:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
-
+    environment: ${{ github.event.inputs.envs || 'dev' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,4 +42,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Deploy with Serverless
-        run: sls deploy
+        env:
+          ENV: ${{ github.event.inputs.envs || 'dev' }}
+        run: sls deploy --stage ${ENV}
